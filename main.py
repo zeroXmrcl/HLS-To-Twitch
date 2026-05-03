@@ -1,8 +1,9 @@
 import os
-import signal
-import subprocess
 import sys
 import time
+import shutil
+import signal
+import subprocess
 from dotenv import load_dotenv
 
 
@@ -151,7 +152,7 @@ def run() -> None:
     def handle_signal(signum, frame):
         """Stop FFmpeg on stop signal"""
         nonlocal stop_requested, process
-        print(f"Stop signal ${stop_requested}. Stopping stream...")
+        print(f"Stop signal {stop_requested}. Stopping stream...")
         stop_requested = True
 
         if process and process.poll() is None:
@@ -161,18 +162,24 @@ def run() -> None:
     signal.signal(signal.SIGTERM, handle_signal)
 
     while not stop_requested:
-        command = build_ffmpeg_command()
+        command = ffmpeg_command()
 
         print("Starting Stream...")
         print("Input:", env("HLS_URL"))
         print("Output", env("TWITCH_RTMP_URL"))
         print()
 
+        if shutil.which("ffmpeg") is None:
+            answer = input("FFmpeg not found. Do you want to apt install it? (y/n): ")
+            if answer.lower() == 'y':
+                print("FFmpeg not found. Attempting to install...")
+                subprocess.run(["sudo", "apt", "install", "ffmpeg", "-y"], check=False)
+
         try:
             process = subprocess.Popen(command)
             return_code = process.wait()
         except FileNotFoundError:
-            print("FFmpeg not found. Install with: sudo apt install ffmpeg")
+            print("FFmpeg not found and could not be installed.")
             sys.exit(1)
 
         if stop_requested:
@@ -185,4 +192,4 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run_forever()
+    run()
